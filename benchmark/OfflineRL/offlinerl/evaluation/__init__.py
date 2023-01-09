@@ -5,10 +5,10 @@ from tqdm import tqdm
 from copy import deepcopy
 from collections import OrderedDict
 
-from offlinerl.utils.env import get_env
-from offlinerl.utils.net.common import MLP
-from offlinerl.evaluation.neorl import test_on_real_env
-from offlinerl.evaluation.fqe import FQE
+from benchmark.OfflineRL.offlinerl.utils.env import get_env
+from benchmark.OfflineRL.offlinerl.utils.net.common import MLP
+from benchmark.OfflineRL.offlinerl.evaluation.neorl import test_on_real_env
+from benchmark.OfflineRL.offlinerl.evaluation.fqe import FQE
 
 class CallBackFunction:
     def __init__(self, *args, **kwargs):
@@ -75,8 +75,8 @@ class OnlineCallBackFunction(CallBackFunction):
         assert self.is_initialized, "`initialize` should be called before callback."
         policy = deepcopy(policy).cpu()
         eval_res = OrderedDict()
-        if not ray.is_initialized():
-            ray.init(ignore_reinit_error=True)
+        # if not ray.is_initialized():
+        #     ray.init(ignore_reinit_error=True)
         eval_res.update(test_on_real_env(policy, self.env, number_of_runs=self.number_of_runs))
         return eval_res
 

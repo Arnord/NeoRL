@@ -1,20 +1,23 @@
+
 import os
 import ray
 import json
 import time
 import argparse
 import numpy as np
-from ray import tune
+import copy
+import pandas as pd
 
+from ray import tune
 
 from benchmark.OfflineRL.offlinerl.algo import algo_select
 from benchmark.OfflineRL.offlinerl.data import load_data_from_neorl
 from benchmark.OfflineRL.offlinerl.evaluation import OnlineCallBackFunction, PeriodicCallBack
 
 # SEEDS = [7, 42, 210]
-SEEDS = [7, 42, 210]
+SEEDS = [42]
 
-ResultDir = os.path.abspath(os.path.join(os.path.dirname(__file__), 'results'))
+ResultDir = os.path.abspath(os.path.join(os.path.dirname(__file__), 'tmp_results'))
 
 
 def training_function(config):
@@ -34,23 +37,20 @@ def training_function(config):
         # Note the evaluation is slow in sp env, since it interact with 10,000 user models each step, 
         # which can be viewed as run 10,000 trajectories simultaneously and average the rewards. However, we do not need to 
         # too many trials in this env, so we just set the default number of runs to 3.
-        callback = PeriodicCallBack(OnlineCallBackFunction(), 50)
+        callback = PeriodicCallBack(OnlineCallBackFunction(), 10)
         callback.initialize(train_buffer=train_buffer, val_buffer=val_buffer, task=algo_config["task"], number_of_runs=3)
     else:
-        # callback = PeriodicCallBack(OnlineCallBackFunction(), 50)
+        callback = PeriodicCallBack(OnlineCallBackFunction(), 2)
         # callback.initialize(train_buffer=train_buffer, val_buffer=val_buffer, task=algo_config["task"], number_of_runs=1000)
-        callback = PeriodicCallBack(OnlineCallBackFunction(), 20)    # TODO：后续将eval周期，即这里的50转换为config可配置参数（写在模型的config里？）
-        callback.initialize(train_buffer=train_buffer, val_buffer=val_buffer, task=algo_config["task"], number_of_runs=1000)
+        callback.initialize(train_buffer=train_buffer, val_buffer=val_buffer, task=algo_config["task"], number_of_runs=10)
     algo_trainer.train(train_buffer, val_buffer, callback_fn=callback)
     # algo_trainer.exp_logger.flush()
     time.sleep(10)  # sleep ensure the log is flushed even if the disks or cpus are busy
 
-    # result, parameter = find_result(algo_trainer.index_path)
     result = algo_trainer.get_best_reward()
     grid_search_keys = list(algo_config['grid_tune'].keys())
     parameter = {k: algo_config[k] for k in grid_search_keys}
 
-    # TODO:修改一下结构，尽量不调用find_result
     return {
         'reward': result,
         'parameter': parameter,
@@ -58,16 +58,13 @@ def training_function(config):
     }
 
 
-def upload_result(task_name: str, algo_name: str, results: list):
+def upload_result_single(task_name: str, algo_name: str, results: list):
     ''' upload the result '''
     # upload txt
     file_name = task_name + ',' + algo_name + '.txt'
-    reward_means = [result['reward_mean'] for result in results]
-    max_reward_mean = max(reward_means)
-    best_index = reward_means.index(max_reward_mean)
-    best_result = results[best_index]
+    best_result = results[0]
     with open(os.path.join(ResultDir, file_name), 'w') as f:
-        f.write(str(best_result['reward_mean']) + '+-' + str(best_result['reward_std']))
+        f.write(str(best_result['reward_mean']) + "+-" + str(best_result['reward_std']))
         for k, v in best_result['parameter'].items():
             f.write('\n')
             f.write(f'{k} : {v}')
@@ -78,15 +75,31 @@ def upload_result(task_name: str, algo_name: str, results: list):
         json.dump(results, f, indent=4)
 
 
-def find_result(exp_dir: str):
-    ''' return the online performance of last epoch and the hyperparameter '''
-    data_file = os.path.join(exp_dir, 'objects', 'map', 'dictionary.log')
-    with open(data_file, 'r') as f:
-        data = json.load(f)
-    result = data['__METRICS__']['Reward_Mean_Env'][0]['values']['last']
-    grid_search_keys = list(data['hparams']['grid_tune'].keys())
-    parameter = {k: data['hparams'][k] for k in grid_search_keys}
-    return result, parameter
+def flatten_dict(dt, delimiter="/", prevent_delimiter=False):
+    dt = copy.deepcopy(dt)
+    if prevent_delimiter and any(delimiter in key for key in dt):
+        # Raise if delimiter is any of the keys
+        raise ValueError(
+            "Found delimiter `{}` in key when trying to flatten array."
+            "Please avoid using the delimiter in your specification.")
+    while any(isinstance(v, dict) for v in dt.values()):
+        remove = []
+        add = {}
+        for key, value in dt.items():
+            if isinstance(value, dict):
+                for subkey, v in value.items():
+                    if prevent_delimiter and delimiter in subkey:
+                        # Raise  if delimiter is in any of the subkeys
+                        raise ValueError(
+                            "Found delimiter `{}` in key when trying to "
+                            "flatten array. Please avoid using the delimiter "
+                            "in your specification.")
+                    add[delimiter.join([key, str(subkey)])] = v
+                remove.append(key)
+        dt.update(add)
+        for k in remove:
+            del dt[k]
+    return dt
 
 
 if __name__ == '__main__':
@@ -98,10 +111,7 @@ if __name__ == '__main__':
     parser.add_argument('--address', type=str, default=None, help='address of the ray cluster')
     args = parser.parse_args()
 
-    ray.init(
-        address=args.address,
-        dashboard_host='0.0.0.0'
-    )
+    # ray.init(args.address)
 
     domain = args.domain
     level = args.level
@@ -123,26 +133,25 @@ if __name__ == '__main__':
     grid_tune = algo_config["grid_tune"]
     for k, v in grid_tune.items():
         parameter_names.append(k)
-        config[k] = tune.grid_search(v)
+        config[k] = v[0]
 
-    config['seed'] = tune.grid_search(SEEDS)
+    config['seed'] = SEEDS[0]
     config['dynamics_root'] = os.path.abspath('dynamics')
     config['behavior_root'] = os.path.abspath('behaviors')
 
-    analysis = tune.run(
-        training_function,
-        name=f'{domain}-{level}-{amount}-{algo}',
-        config=config,
-        queue_trials=True,
-        metric='reward',
-        mode='max',
-        resources_per_trial={
-            "cpu": 0,
-            "gpu": 0.2,  # if no gpu or the memory of gpu is not enough, change this parameter
-        }
-    )
+    def get_results_df(config, seed):
+        config_training = config
+        config_training['seed'] = seed
 
-    df = analysis.results_df
+        return flatten_dict(training_function(config_training), delimiter=".")
+
+
+    df = pd.DataFrame.from_records(
+        [
+                get_results_df(config, seed)
+                for seed in SEEDS
+        ],
+    )
 
     ''' process result '''
     results = {}
@@ -170,8 +179,7 @@ if __name__ == '__main__':
         })
         return single_result
 
-
     results = [summary_result(single_result) for single_result in results.values()]
 
     ''' upload result '''
-    upload_result(f'{domain}-{level}-{amount}', algo, results)
+    upload_result_single(f'{domain}-{level}-{amount}', algo, results)

@@ -21,9 +21,10 @@ value_layers = 2
 phi = 0.05
 lam = 0.75
 
-batch_size = 100
-steps_per_epoch = 5000
-max_epoch = 200
+batch_size = 256   # 100
+# steps_per_epoch = 5000
+steps_per_epoch = 10 # 1000
+max_epoch = 200    # 200
 
 vae_lr = 1e-3
 jitter_lr = 3e-4
@@ -39,5 +40,6 @@ params_tune = {
 
 #tune
 grid_tune = {
-    "phi" : [0.05, 0.1, 0.2, 0.5],
+    # "phi" : [0.05, 0.1, 0.2, 0.5],
+    "phi": [0.1]
 }

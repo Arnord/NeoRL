@@ -2,9 +2,9 @@ import torch
 from copy import deepcopy
 from loguru import logger
 
-from offlinerl.algo.base import BaseAlgo
-from offlinerl.utils.net.continuous import GaussianActor
-from offlinerl.utils.exp import setup_seed
+from benchmark.OfflineRL.offlinerl.algo.base import BaseAlgo
+from benchmark.OfflineRL.offlinerl.utils.net.continuous import GaussianActor
+from benchmark.OfflineRL.offlinerl.utils.exp import setup_seed
 
 def algo_init(args):
     logger.info('Run algo_init function')

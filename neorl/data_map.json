@@ -143,5 +143,9 @@
     "ib_reward.py": {"url": "http://datasets.polixir.site/v2/ib/ib_reward.py", "md5": "5d1a7476b6aa5c1084a5194e58425d5b"},
     "sp-v0-10000-train.npz":{"url":"http://datasets.polixir.site/v2/sp/sp-v0-10000-train.npz","md5": "ae154aa3ecb56024a3cd2eaf98c782b5"},
     "sp-v0-1000-val.npz": {"url": "http://datasets.polixir.site/v2/sp/sp-v0-1000-val.npz","md5": "38e77c267ce56989ee7c483e534e2df8" },
-    "sp.yaml": {"url": "http://datasets.polixir.site/v2/sp/sp.yaml", "md5": "b53f312cdc7c16a0a162e6e2e7dfb471"}
+    "sp.yaml": {"url": "http://datasets.polixir.site/v2/sp/sp.yaml", "md5": "b53f312cdc7c16a0a162e6e2e7dfb471"},
+    "thickener-random-100-train.npz": {"url": "","md5": "" },
+    "thickener-random-10-val.npz": {"url": "","md5": "" },
+    "thickener-random-1000-train.npz": {"url": "","md5": "" },
+    "thickener-random-100-val.npz": {"url": "","md5": "" }
 }

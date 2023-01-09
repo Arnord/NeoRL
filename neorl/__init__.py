@@ -30,7 +30,12 @@ def make(task: str, reward_func=None, done_func=None):
             task = 'sales_promotion_v0'
             assert task in sales_promotion_envs.keys()
             env = get_env(sales_promotion_envs[task])
-            
+        elif task.lower() == "thickener" or task.lower() == "thickener_simulation":
+            from neorl.neorl_envs.thickener import thickener_envs, get_env
+            task = "thickener"
+            assert task in thickener_envs.keys()
+            env =get_env(thickener_envs[task])
+
         #elif task in ['halfcheetah-medium-v0', 'hopper-medium-v0', 'walker2d-medium-v0']:
         #    from neorl.neorl_envs import d4rl
         #    env = d4rl.make_env(task)
@@ -46,15 +51,15 @@ def make(task: str, reward_func=None, done_func=None):
         default_reward_func = importlib.import_module(f"neorl.neorl_envs.{task}.{task}_reward").get_reward
     except ModuleNotFoundError:
         default_reward_func = None
-        
+
     env.set_reward_func(default_reward_func if reward_func is None else reward_func)
-        
+
 
     try:
         default_done_func = importlib.import_module(f"neorl.neorl_envs.{task}.{task}_done").get_done
     except ModuleNotFoundError:
         default_done_func = None
-    
+
     env.set_done_func(default_done_func if done_func is None else done_func)
 
     return env

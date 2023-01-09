@@ -42,3 +42,4 @@ def init_exp_logger(repo=None, experiment_name=None, flush_frequency=1):
     aim_logger.experiment_name = experiment_name
     
     return aim_logger
+

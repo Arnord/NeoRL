@@ -153,3 +153,5 @@ MUJOCO_LOG.TXT
 *.pstats
 neorl/data/
 *ipynb
+
+/neorl/neorl_envs/thickener/tmp_data

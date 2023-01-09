@@ -135,6 +135,10 @@ def get_env_obs_act_spaces(task : str):
 
 def get_env_action_range(task : str) -> Tuple[float, float]:
     env = get_env(task)
+    if task == "thickener":   # action在train_sample阶段已经做过了归一化
+        act_max = float(1)
+        act_min = float(-1)
+        return  act_max, act_min
     act_max = float(env.action_space.high[0])
     act_min = float(env.action_space.low[0])
     

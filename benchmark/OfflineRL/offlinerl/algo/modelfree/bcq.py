@@ -27,7 +27,7 @@ class VAE(torch.nn.Module):
     def encode(self, state, action):
         state_action = torch.cat([state, action], dim=-1)
         mu, logstd = torch.chunk(self.encoder(state_action), 2, dim=-1)
-        logstd = torch.clamp(logstd, -4, 15)
+        logstd = torch.clamp(logstd, -4, 15)     # TODO: why?
         std = torch.exp(logstd)
         return Normal(mu, std)
 
@@ -38,7 +38,7 @@ class VAE(torch.nn.Module):
             z = torch.clamp(z, -0.5, 0.5)
 
         action = self.decoder(torch.cat([state, z], dim=-1))
-        action = self.max_action * torch.tanh(action)
+        action = self.max_action * torch.tanh(action)    # 为什么要*max_action
         return action    
 
     def forward(self, state, action):
@@ -148,16 +148,20 @@ class AlgoTrainer(BaseAlgo):
                 batch_data = train_buffer.sample(self.batch_size)
                 batch_data.to_torch(device=self.device)
                 obs = batch_data['obs']
-                action = batch_data['act']
+                action = batch_data['act']  # TODO: 判断一下此处的state_action是不是连续的时间依赖。
                 next_obs = batch_data['obs_next']
                 reward = batch_data['rew']
                 done = batch_data['done'].float()
 
                 # train vae
-                dist, _action = self.vae(obs, action)
+                dist, _action = self.vae(obs, action)  # TODO:vae的decode 此处能否加上overshooting?
                 kl_loss = kl_divergence(dist, Normal(0, 1)).sum(dim=-1).mean()
                 recon_loss = ((action - _action) ** 2).sum(dim=-1).mean()
                 vae_loss = kl_loss + recon_loss
+                # # aim 监控
+                # self.run.track(kl_loss.item(), name="kl_loss", step=i, context={"subset": f"train_epoch{epoch}"})
+                # self.run.track(recon_loss.item(), name="recon_loss", step=i, context={"subset": f"train_epoch{epoch}"})
+                # self.run.track(vae_loss.item(), name="vae_loss", step=i, context={"subset": f"train_epoch{epoch}"})
 
                 self.vae_optim.zero_grad()
                 vae_loss.backward()
@@ -191,6 +195,9 @@ class AlgoTrainer(BaseAlgo):
                 action = self.jitter(obs, action)
                 obs_action = torch.cat([obs, action], dim=-1)
                 jitter_loss = - self.q1(obs_action).mean()
+
+                # aim 监控
+                # self.run.track(action, name="action", step=i, context={"subset": f"train_epoch{epoch}"})
 
                 self.jitter_optim.zero_grad()
                 jitter_loss.backward()

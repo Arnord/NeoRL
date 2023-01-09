@@ -60,7 +60,7 @@ def download_dataset_from_url(dataset_url_md5, name, to_path, verbose=1):
                 print(f"Local dataset {name} is broken, ready to re-download.")
     if verbose != 0:
         print(f'Downloading dataset: {dataset_url} to {dataset_filepath}')
-    urllib.request.urlretrieve(dataset_url, dataset_filepath)
+    urllib.request.urlretrieve(dataset_url, dataset_filepath)   # if Local dataset do not exist, downloading the lack dataset
 
     if not os.path.exists(dataset_filepath):
         raise IOError(f"Failed to download dataset from {dataset_url}")
@@ -135,22 +135,25 @@ def sample_by_num(data_dict: dict, num: int):
     return samples
 
 
-def sample_dataset(task_name_version, path, traj_num, data_json, data_type, use_data_reward, reward_func, train_or_val):
+def  sample_dataset(task_name_version, path, traj_num, data_json, data_type, use_data_reward, reward_func, train_or_val):
     """
     Warp the procedure of finding appropriate least file, downloading file, sampling num trajs,
     and re-calc reward by customized reward_func (if needed).
     """
     local_files = search_local_files(task_name_version, data_type, train_or_val, path, data_json)
 
-    if len(local_files) != 0:  # find dataset in local
-        least_num = find_local_file(local_files, traj_num, train_or_val)
-        if least_num == np.Inf:  # find appropriate least dataset in remote
+    if task_name_version == "thickener":
+        least_num = traj_num
+    else:
+        if len(local_files) != 0:  # find dataset in local
+            least_num = find_local_file(local_files, traj_num, train_or_val)
+            if least_num == np.Inf:  # find appropriate least dataset in remote
+                least_num = find_remote_file(data_json, task_name_version, data_type, traj_num, train_or_val)
+        else:  # find appropriate least dataset in remote
             least_num = find_remote_file(data_json, task_name_version, data_type, traj_num, train_or_val)
-    else:  # find appropriate least dataset in remote
-        least_num = find_remote_file(data_json, task_name_version, data_type, traj_num, train_or_val)
 
-    if least_num == np.Inf:
-        raise Exception("Could not find appropriate dataset, please reduce `num`!")
+        if least_num == np.Inf:
+            raise Exception("Could not find appropriate dataset, please reduce `num`!")
 
     data_key = "-".join([task_name_version, data_type, str(least_num), train_or_val])
     all_keys = data_json.keys()
@@ -160,15 +163,18 @@ def sample_dataset(task_name_version, path, traj_num, data_json, data_type, use_
         if data_key in i:
             if_find_dataset = True
             try:
-                data_url_md5 = data_json[i]
-                data_path = download_dataset_from_url(data_url_md5, name=i, to_path=path)
+                if task_name_version == "thickener":
+                    data_path = os.path.join(path, i)
+                else:
+                    data_url_md5 = data_json[i]
+                    data_path = download_dataset_from_url(data_url_md5, name=i, to_path=path)
                 data_npz = np.load(data_path)
                 data_dict = dict(data_npz)
                 data_dict["index"] = np.insert(data_dict["index"], 0, 0)
                 data_dict['index'] = data_dict['index'].astype(np.int32)  # convert the float32 form of "index" to int32
                 break
-            except Exception:
-                raise Exception(f"Could not download the dataset: {i}")
+            except Exception as e:
+                raise Exception(f"Could not download the dataset: {i} because: {e}")
 
     if not if_find_dataset:
         raise Exception(f"Could not find the dataset: {data_key}")
