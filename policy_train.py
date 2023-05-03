@@ -1,6 +1,6 @@
 
 import os
-import ray
+# import ray
 import json
 import time
 import argparse
@@ -8,7 +8,7 @@ import numpy as np
 import copy
 import pandas as pd
 
-from ray import tune
+# from ray import tune
 
 from benchmark.OfflineRL.offlinerl.algo import algo_select
 from benchmark.OfflineRL.offlinerl.data import load_data_from_neorl
